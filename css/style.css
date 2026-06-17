@@ -130,7 +130,8 @@ canvas {
 #wrap.fs-fallback.rotate-landscape {
   transform: rotate(90deg); transform-origin: center center;
   width: 100vh; height: 100vw;
-  top: 50%; left: 50%; inset: auto;
+  inset: auto;                 /* limpa o inset:0 ANTES de posicionar */
+  top: 50%; left: 50%;
   margin-top: -50vw; margin-left: -50vh;
 }
 #wrap.fs-fallback.rotate-landscape canvas {
