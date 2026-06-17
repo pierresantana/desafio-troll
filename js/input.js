@@ -129,14 +129,41 @@ function bindTouchButton(el){
 function toggleFullscreen(){
   const el = document.getElementById("wrap") || document.documentElement;
   const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  const req  = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitEnterFullscreen;
+
+  // iPhone (Safari) não tem Fullscreen API -> usa pseudo-fullscreen via CSS.
+  if (!req){
+    el.classList.toggle("fs-fallback");
+    return;
+  }
   if (!fsEl){
-    const req = el.requestFullscreen || el.webkitRequestFullscreen;
-    if (req) req.call(el);
+    req.call(el);
   } else {
     const exit = document.exitFullscreen || document.webkitExitFullscreen;
     if (exit) exit.call(document);
   }
 }
+
+// =====================================================================
+//  FORÇA PAISAGEM em aparelhos de toque.
+//  Mede a janela direto (à prova de media queries que reportam errado).
+//  Se for toque E estiver em retrato -> gira o #wrap 90° via classe CSS.
+// =====================================================================
+const isTouchDevice =
+  ("ontouchstart" in window) ||
+  (navigator.maxTouchPoints > 0) ||
+  (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+
+function applyOrientation(){
+  const wrap = document.getElementById("wrap");
+  if (!wrap) return;
+  const portrait = window.innerHeight > window.innerWidth;
+  wrap.classList.toggle("rotate-landscape", isTouchDevice && portrait);
+}
+
+addEventListener("resize", applyOrientation);
+addEventListener("orientationchange", () => { applyOrientation(); setTimeout(applyOrientation, 250); });
+applyOrientation();
 
 function setupControls(){
   document.querySelectorAll(".tcbtn").forEach(bindTouchButton);
