@@ -125,12 +125,19 @@ canvas {
   max-width: none; max-height: none;
   border-radius: 0; border-width: 0;
 }
-/* no iPhone, o pseudo-fullscreen também respeita o giro p/ paisagem */
+/* no iPhone, o pseudo-fullscreen também respeita o giro p/ paisagem.
+   Duas classes = especificidade maior, vence a regra de canvas do fs-fallback. */
 #wrap.fs-fallback.rotate-landscape {
   transform: rotate(90deg); transform-origin: center center;
   width: 100vh; height: 100vw;
   top: 50%; left: 50%; inset: auto;
   margin-top: -50vw; margin-left: -50vh;
+}
+#wrap.fs-fallback.rotate-landscape canvas {
+  width: 100%; height: 100%;
+  max-width: none; max-height: none;
+  object-fit: contain;
+  border-radius: 0; border-width: 0;
 }
 
 /* ---------- Tela cheia: usa o máximo da tela mantendo 16:9 ---------- */
