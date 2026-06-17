@@ -154,12 +154,16 @@ const isTouchDevice =
   (navigator.maxTouchPoints > 0) ||
   (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
 
+// Tamanho físico da tela (não muda com a UI do navegador) -> separa celular de tablet.
+// Chrome/Safari reportam screen.width/height igual; innerWidth varia com a barra do Chrome.
+const sw = (window.screen && window.screen.width)  || window.innerWidth;
+const sh = (window.screen && window.screen.height) || window.innerHeight;
+const isPhone = Math.min(sw, sh) <= 600;   // iPad menor lado ~744+, celular ~430
+
 function applyOrientation(){
   const wrap = document.getElementById("wrap");
   if (!wrap) return;
   const portrait = window.innerHeight > window.innerWidth;
-  // menor lado <= 600px => celular. iPad/tablet tem tela grande e NÃO gira.
-  const isPhone = Math.min(window.innerWidth, window.innerHeight) <= 600;
   wrap.classList.toggle("rotate-landscape", isTouchDevice && isPhone && portrait);
 }
 
