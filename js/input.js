@@ -158,7 +158,9 @@ function applyOrientation(){
   const wrap = document.getElementById("wrap");
   if (!wrap) return;
   const portrait = window.innerHeight > window.innerWidth;
-  wrap.classList.toggle("rotate-landscape", isTouchDevice && portrait);
+  // menor lado <= 600px => celular. iPad/tablet tem tela grande e NÃO gira.
+  const isPhone = Math.min(window.innerWidth, window.innerHeight) <= 600;
+  wrap.classList.toggle("rotate-landscape", isTouchDevice && isPhone && portrait);
 }
 
 addEventListener("resize", applyOrientation);
