@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Desafio Troll</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="800" height="450"></canvas>
+  <div id="hud">
+    <div id="mission"><span id="mtext"></span><small id="mhint"></small></div>
+    <div id="hud-right">
+      <div id="deaths">Mortes: 0</div>
+      <div id="sysbtns">
+        <button id="fsBtn" title="Tela cheia" aria-label="Tela cheia">⛶</button>
+        <button id="restartBtn" title="Reiniciar a fase" aria-label="Reiniciar">↻</button>
+        <button id="muteBtn" title="Liga/desliga som" aria-label="Som">🔊</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controles de toque (celular/tablet). Mapeiam para os mesmos keys/PRESS. -->
+  <div id="touch">
+    <div class="tc-left">
+      <button class="tcbtn" data-key="ArrowLeft"  aria-label="Esquerda">◀</button>
+      <button class="tcbtn" data-key="ArrowRight" aria-label="Direita">▶</button>
+    </div>
+    <div class="tc-right">
+      <button class="tcbtn"      data-key="ShiftLeft" aria-label="Correr">⏩</button>
+      <button class="tcbtn fire" data-key="KeyX"      aria-label="Atirar">🔫</button>
+      <button class="tcbtn jump" data-key="ArrowUp"   aria-label="Pular">⤒</button>
+    </div>
+  </div>
+  <div id="tip">← →  mover  &nbsp;•&nbsp;  Shift  correr  &nbsp;•&nbsp;  ↑ / Espaço  pular  &nbsp;•&nbsp;  X  atirar  &nbsp;•&nbsp;  R  reiniciar  &nbsp;•&nbsp;  M  som  &nbsp;•&nbsp;  🎮 controle suportado</div>
+  <div id="overlay">
+    <h1>Desafio Troll</h1>
+    <p>Um soldado. Algumas missões simples. <b>O que poderia dar errado?</b></p>
+    <p style="opacity:.7;font-size:13px">Dica: o jogo é mentiroso. Confie nos seus reflexos, não no que você vê.</p>
+    <button id="startBtn">Começar</button>
+  </div>
+</div>
+
+<!-- A ordem importa: core define as bases; game.js precisa ser o último. -->
+<script src="js/core.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/input.js"></script>
+<script src="js/scenery.js"></script>
+<script src="js/player.js"></script>
+<script src="js/enemies.js"></script>
+<script src="js/levels.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
