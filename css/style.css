@@ -99,11 +99,15 @@ canvas {
 #wrap.rotate-landscape {
   transform: rotate(90deg);
   transform-origin: center center;
-  /* troca largura/altura: o conteúdo deitado ocupa a viewport girada */
-  width: 100vh; height: 100vw;
   position: fixed; top: 50%; left: 50%;
-  margin-top: -50vw; margin-left: -50vh;
   max-width: none;
+  /* troca largura/altura: o conteúdo deitado ocupa a viewport girada.
+     dvh/dvw = viewport dinâmica: exclui as barras do navegador, então
+     os botões nas bordas não ficam escondidos atrás da URL/toolbar. */
+  width: 100vh; height: 100vw;            /* fallback p/ navegadores sem dvh */
+  margin-top: -50vw; margin-left: -50vh;
+  width: 100dvh; height: 100dvw;
+  margin-top: -50dvw; margin-left: -50dvh;
 }
 #wrap.rotate-landscape canvas {
   width: 100%; height: 100%;
