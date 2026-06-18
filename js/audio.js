@@ -91,6 +91,10 @@ const Sfx = (() => {
              tone({freq:200, to:60, type:"square", dur:0.08, vol:0.08}); },
     die(){ tone({freq:420, to:70, type:"sawtooth", dur:0.6, vol:0.2});
            noise({dur:0.3, vol:0.12, type:"lowpass", freq:600, when:0.02}); },
+    explosion(){ noise({dur:0.05, vol:0.28, type:"highpass", freq:2600, q:0.5});       // estalo inicial
+                 noise({dur:0.7,  vol:0.30, type:"lowpass",  freq:420,  q:0.7, when:0.01}); // estrondo grave
+                 tone({freq:120, to:32, type:"sawtooth", dur:0.6, vol:0.20, when:0.01});     // onda de choque
+                 noise({dur:0.5,  vol:0.12, type:"bandpass", freq:160, q:0.4, when:0.06}); }, // rugido residual
     hurt(){ tone({freq:160, to:90, type:"square", dur:0.18, vol:0.14}); },     // bala acerta sem matar
     kill(){ noise({dur:0.18, vol:0.22, type:"bandpass", freq:420, q:0.4});
             tone({freq:130, to:50, type:"sawtooth", dur:0.22, vol:0.14}); },
@@ -118,5 +122,7 @@ const Sfx = (() => {
     spider(){ for (let i=0;i<5;i++) noise({dur:0.02, vol:0.05, type:"highpass", freq:5200, q:2, when:i*0.03}); },
     slime(){ tone({freq:200, to:420, type:"sine", dur:0.1, vol:0.10});
              tone({freq:420, to:150, type:"sine", dur:0.12, vol:0.08, when:0.08}); },
+    killer(){ tone({freq:280, to:110, type:"sawtooth", dur:0.32, vol:0.07});           // rosnado baixo
+              noise({dur:0.10, vol:0.10, type:"bandpass", freq:3200, q:4, when:0.10}); }, // shing da faca
   };
 })();

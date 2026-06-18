@@ -14,6 +14,8 @@ const W = canvas.width, H = canvas.height;
 const GRAV = 0.7, MOVE = 0.9, FRICTION = 0.78, MAXVX = 4.6, JUMP = 13.5;
 const RUN_MULT = 1.8;   // multiplicador de velocidade ao correr
 const JUMP_BUFFER = 7;  // frames que um aperto de pulo fica "guardado"
+const PLAYER_H = 34;    // altura do soldado em pé
+const CROUCH_H = 22;    // altura agachado (os pés ficam no mesmo lugar)
 
 // Estado global do jogo
 let deaths = 0;

@@ -16,6 +16,10 @@ const THEME = {
   tomb:      { ground:"#8c6a35", grass:"#b08a45" },   // arenito
   cave:      { ground:"#3a3230", grass:"#4a4038" },   // rocha
   sewer:     { ground:"#2f3a33", grass:"#46574b" },   // concreto úmido
+  house:     { ground:"#3b2c22", grass:"#5a4632" },   // assoalho de madeira podre
+  hospital:  { ground:"#48525a", grass:"#5d6770" },   // linóleo encardido
+  base:       { ground:"#4a463a", grass:"#5e5942" },   // terra batida/concreto militar
+  apocalypse: { ground:"#26242a", grass:"#3a3640" },   // cidade arruinada (apocalipse zumbi)
 };
 
 function drawPlatform(pl, th){
@@ -158,6 +162,197 @@ function drawBackground(theme, t){
     for (const py of [120, 210]) ctx.fillRect(0, py, W, 9);
     ctx.fillStyle = "rgba(90,150,110,.18)";                                                  // goteiras
     for (const dx of [120, 300, 520, 700]){ ctx.beginPath(); ctx.arc(dx, 130, 6, 0, Math.PI*2); ctx.fill(); }
+    return;
+  }
+  if (theme === "house") {
+    // parede interna mofada
+    let g = ctx.createLinearGradient(0,0,0,360);
+    g.addColorStop(0,"#4a4036"); g.addColorStop(1,"#2e2820");
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,360);
+    // papel de parede listrado descascando
+    ctx.fillStyle = "rgba(120,98,70,.25)";
+    for (let x=0;x<W;x+=40) ctx.fillRect(x,0,18,360);
+    ctx.fillStyle = "#241d16";                                   // remendos onde o papel caiu
+    for (const [x,y,w,h] of [[90,60,70,120],[360,30,60,90],[560,90,90,140]])
+      ctx.fillRect(x,y,w,h);
+    // rodapé escuro acima do assoalho
+    ctx.fillStyle = "#1e1812"; ctx.fillRect(0,348,W,12);
+    // janela tapada com tábuas cruzadas
+    ctx.fillStyle = "#15110c"; ctx.fillRect(220,70,120,150);
+    ctx.fillStyle = "#5a4632";
+    for (const ty of [88,128,168]) ctx.fillRect(214,ty,132,14);  // tábuas horizontais
+    ctx.save(); ctx.translate(280,145); ctx.rotate(0.5);
+    ctx.fillRect(-72,-7,144,14); ctx.restore();                  // tábua diagonal
+    // quadro torto na parede
+    ctx.save(); ctx.translate(640,120); ctx.rotate(-0.12);
+    ctx.fillStyle = "#6b5436"; ctx.fillRect(-34,-44,68,88);
+    ctx.fillStyle = "#241d16"; ctx.fillRect(-26,-36,52,72); ctx.restore();
+    // teias de aranha nos cantos
+    ctx.strokeStyle = "rgba(220,220,220,.10)"; ctx.lineWidth = 1;
+    for (const [cx,cy,sgn] of [[0,0,1],[W,0,-1]]){
+      for (let r=20;r<=80;r+=20){ ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI/2*1); ctx.stroke(); }
+      for (let a=0;a<=Math.PI/2;a+=Math.PI/8){
+        ctx.beginPath(); ctx.moveTo(cx,cy);
+        ctx.lineTo(cx+sgn*Math.cos(a)*84, cy+Math.sin(a)*84); ctx.stroke(); }
+    }
+    // chão de tábuas
+    ctx.fillStyle = "#2a2018"; ctx.fillRect(0,360,W,H-360);
+    return;
+  }
+  if (theme === "base") {
+    // céu de zona de guerra: cinza esfumaçado com clarão alaranjado
+    let g = ctx.createLinearGradient(0,0,0,360);
+    g.addColorStop(0,"#6a6256"); g.addColorStop(.6,"#8a7a63"); g.addColorStop(1,"#9c8a6e");
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,360);
+    ctx.fillStyle = "rgba(255,150,70,.12)";                       // clarão de incêndio no horizonte
+    ctx.beginPath(); ctx.arc(560,300,160,0,Math.PI*2); ctx.fill();
+    // bunker/hangar destruído ao fundo
+    ctx.fillStyle = "#3c4036";
+    ctx.fillRect(40,250,180,110);                                 // parede
+    ctx.fillStyle = "#2c2f28";
+    ctx.beginPath(); ctx.moveTo(40,250); ctx.lineTo(130,210); ctx.lineTo(220,250); ctx.fill(); // teto desabado
+    ctx.fillStyle = "#1f221c"; ctx.fillRect(95,300,46,60);        // entrada escura
+    for (const [x,y,w,h] of [[55,270,18,16],[170,275,16,14]]){    // janelas quebradas
+      ctx.fillStyle = "#15171280"; ctx.fillRect(x,y,w,h); }
+    // torre de vigia tombada
+    ctx.strokeStyle = "#3a3b30"; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(640,360); ctx.lineTo(700,250);
+    ctx.moveTo(660,360); ctx.lineTo(720,255); ctx.stroke();
+    ctx.fillStyle = "#454636"; ctx.save(); ctx.translate(710,250); ctx.rotate(0.2);
+    ctx.fillRect(-26,-22,52,30); ctx.restore();                  // cabine inclinada
+    // colunas de fumaça subindo
+    ctx.fillStyle = "rgba(40,38,34,.30)";
+    for (const [sx,sb] of [[150,250],[470,240],[700,250]])
+      for (let i=0;i<4;i++){ const yy = sb - i*44 - (t*0.3 % 44);
+        ctx.beginPath(); ctx.arc(sx + Math.sin(i+t*0.02)*10, yy, 14 + i*5, 0, Math.PI*2); ctx.fill(); }
+    // arame farpado no horizonte
+    ctx.strokeStyle = "#2b2c24"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0,344); ctx.lineTo(W,344); ctx.stroke();
+    for (let x=10;x<W;x+=26){ ctx.beginPath(); ctx.arc(x,344,4,0,Math.PI*2); ctx.stroke(); }
+    // sacos de areia empilhados (barricada)
+    ctx.fillStyle = "#7a6f4e";
+    for (let r=0;r<2;r++) for (let i=0;i<5;i++){
+      const bx = 250 + i*26 + (r?13:0), by = 332 - r*16;
+      roundRect(bx, by, 24, 15, 7); ctx.fill();
+    }
+    // escombros/crateras espalhados no chão
+    ctx.fillStyle = "#3a382e";
+    for (const [x,w] of [[120,40],[420,55],[600,45]]){
+      ctx.beginPath(); ctx.ellipse(x, 360, w, 9, 0, Math.PI, 0); ctx.fill(); }
+    return;
+  }
+  if (theme === "apocalypse") {
+    // céu doentio de fim de mundo: cinza-esverdeado com clarão vermelho de incêndio
+    let g = ctx.createLinearGradient(0,0,0,360);
+    g.addColorStop(0,"#1a1f1c"); g.addColorStop(.5,"#2f322a"); g.addColorStop(1,"#4a2f24");
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,360);
+    // lua sangrenta velada pela poeira
+    ctx.fillStyle = "rgba(190,120,90,.5)";
+    ctx.beginPath(); ctx.arc(130,78,30,0,Math.PI*2); ctx.fill();
+    // brasas de incêndio pulsando no horizonte
+    const glow = 0.16 + Math.sin(t*0.05)*0.05;
+    ctx.fillStyle = `rgba(255,90,30,${glow})`;
+    ctx.beginPath(); ctx.arc(520,340,190,0,Math.PI*2); ctx.fill();
+
+    // skyline de cidade arruinada (prédios quebrados, alturas irregulares)
+    const blds = [[0,150,70],[78,210,64],[150,110,80],[238,250,72],[320,140,60],
+                  [388,200,84],[480,120,70],[558,230,66],[632,160,78],[720,110,80]];
+    for (const [x,h,w] of blds){
+      ctx.fillStyle = "#191c1f"; ctx.fillRect(x, 360-h, w, h);
+      // topo destruído (dente de serra)
+      ctx.beginPath(); ctx.moveTo(x, 360-h);
+      for (let i=0;i<=4;i++){ const bx=x+i*(w/4); ctx.lineTo(bx, 360-h - ((i%2)?0:9)); }
+      ctx.lineTo(x+w,360-h); ctx.fill();
+      // janelas: a maioria apagada, algumas com fogo
+      for (let wy=360-h+14; wy<350; wy+=20)
+        for (let wx=x+8; wx<x+w-8; wx+=16){
+          const fire = ((wx*7 + wy*3) % 23) === 0;
+          ctx.fillStyle = fire ? `rgba(255,140,40,${0.5+Math.sin(t*0.1+wx)*0.2})` : "#0e1013";
+          ctx.fillRect(wx, wy, 8, 11);
+        }
+    }
+    // colunas de fumaça subindo da cidade
+    ctx.fillStyle = "rgba(28,26,24,.32)";
+    for (const [sx,sb] of [[238,150],[480,200],[660,180]])
+      for (let i=0;i<5;i++){ const yy = sb - i*42 - (t*0.35 % 42);
+        ctx.beginPath(); ctx.arc(sx + Math.sin(i+t*0.02)*12, yy, 13 + i*6, 0, Math.PI*2); ctx.fill(); }
+
+    // HORDA: silhuetas de zumbis cambaleando ao longe (em direção ao jogador)
+    ctx.fillStyle = "#101310";
+    for (let i=0;i<11;i++){
+      const zx = ((i*73 + t*0.25) % (W+40)) - 20;     // arrastam-se lentamente pra direita
+      const sway = Math.sin(t*0.08 + i)*1.5;           // gingado de zumbi
+      const zy = 344, zh = 18 + (i%3)*3;
+      ctx.save(); ctx.translate(zx + sway, zy);
+      ctx.fillRect(-3, -zh, 6, zh);                    // tronco curvado
+      ctx.beginPath(); ctx.arc(0, -zh-3, 3.5, 0, Math.PI*2); ctx.fill();   // cabeça pendida
+      ctx.fillRect(-7, -zh+4, 5, 2);                   // braço esticado pra frente
+      ctx.restore();
+    }
+
+    // carro queimado capotado em primeiro plano
+    ctx.save(); ctx.translate(360,346); ctx.rotate(0.14);
+    ctx.fillStyle = "#23211e"; roundRect(-46,-24,92,24,6); ctx.fill();    // carroceria torrada
+    ctx.fillStyle = "#1a1815"; roundRect(-28,-38,50,16,5); ctx.fill();    // teto amassado
+    ctx.fillStyle = "#0c0b0a";
+    ctx.beginPath(); ctx.arc(-30,2,11,0,Math.PI*2); ctx.fill();           // rodas pra cima (derretidas)
+    ctx.beginPath(); ctx.arc(30,2,11,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = "rgba(255,110,40,.25)";                              // brasas ainda acesas sob o carro
+    ctx.beginPath(); ctx.ellipse(0,4,40,8,0,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+
+    // poste de luz tombado
+    ctx.strokeStyle = "#1c1e21"; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(600,360); ctx.lineTo(660,300); ctx.lineTo(700,308); ctx.stroke();
+
+    // entulho e manchas escuras no asfalto
+    ctx.fillStyle = "#1c1a20";
+    for (const [x,w] of [[120,44],[300,40],[560,50]]){
+      ctx.beginPath(); ctx.ellipse(x, 360, w, 8, 0, Math.PI, 0); ctx.fill(); }
+    // carcaça de manchas de sangue secas
+    ctx.fillStyle = "rgba(90,20,18,.45)";
+    for (const [x,w] of [[200,30],[470,26],[680,34]])
+      ctx.fillRect(x, 356, w, 4);
+    return;
+  }
+  if (theme === "hospital") {
+    // parede de azulejos verde-clínico encardido
+    let g = ctx.createLinearGradient(0,0,0,360);
+    g.addColorStop(0,"#7e9088"); g.addColorStop(1,"#9fb0a6");
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,360);
+    // azulejos com rejunte
+    ctx.strokeStyle = "rgba(40,55,50,.18)"; ctx.lineWidth = 1;
+    for (let y=20;y<348;y+=28) for (let x=0;x<W;x+=36) ctx.strokeRect(x,y,36,28);
+    // faixa de barra de proteção na parede
+    ctx.fillStyle = "#6a7d74"; ctx.fillRect(0,210,W,8);
+    // manchas de mofo/umidade
+    ctx.fillStyle = "rgba(50,60,45,.22)";
+    for (const [x,y,r] of [[120,90,34],[470,60,46],[640,150,30],[300,180,26]]){
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
+    // luminária fluorescente pendurada, piscando
+    const flick = Math.random() < 0.12 ? 0.25 : 1;
+    for (const lx of [200, 560]){
+      ctx.strokeStyle = "#3a4640"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(lx,0); ctx.lineTo(lx,26); ctx.moveTo(lx+60,0); ctx.lineTo(lx+60,26); ctx.stroke();
+      ctx.fillStyle = "#cfd8d2"; ctx.fillRect(lx-6,26,72,10);
+      ctx.fillStyle = `rgba(220,240,235,${0.5*flick})`; ctx.fillRect(lx-6,36,72,4);
+      ctx.fillStyle = `rgba(220,240,235,${0.10*flick})`;
+      ctx.beginPath(); ctx.moveTo(lx-6,36); ctx.lineTo(lx+90,150); ctx.lineTo(lx-30,150); ctx.fill();
+    }
+    // placa com cruz médica
+    ctx.fillStyle = "#e8efe9"; roundRect(372,70,56,40,4); ctx.fill();
+    ctx.fillStyle = "#c0392b"; ctx.fillRect(394,78,12,24); ctx.fillRect(386,86,28,8);
+    // maca abandonada encostada no fundo
+    ctx.fillStyle = "#7c8a82"; ctx.fillRect(80,300,140,8);          // colchão
+    ctx.fillStyle = "#aab4ad"; ctx.fillRect(84,292,132,10);
+    ctx.fillStyle = "#5a6760"; ctx.fillRect(86,308,5,40); ctx.fillRect(210,308,5,40); // pernas
+    ctx.strokeStyle = "#5a6760"; ctx.lineWidth = 3;
+    ctx.strokeRect(78,278,18,22);                                   // grade da cabeceira
+    // cortina rasgada
+    ctx.fillStyle = "rgba(180,195,188,.55)";
+    ctx.beginPath(); ctx.moveTo(640,40);
+    for (let i=0;i<=6;i++){ const yy=40+i*45; ctx.lineTo(640 + (i%2?14:0), yy); }
+    ctx.lineTo(720,310); ctx.lineTo(720,40); ctx.fill();
     return;
   }
   // padrão: céu + grama

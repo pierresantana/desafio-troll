@@ -2,7 +2,7 @@
 
 Um platformer 2D de "troll": um soldado cumpre missões simples enquanto o jogo
 trapaceia (o buraco cresce, a chave foge, a bandeira escapa, o chão some...).
-São **20 fases**, **7 tipos de inimigo** e som sintetizado na hora.
+São **23 fases**, **8 tipos de inimigo** e som sintetizado na hora.
 
 ## Como rodar
 
@@ -46,7 +46,7 @@ js/input.js       teclado + joystick/gamepad (keys / PRESS)
 js/scenery.js     THEME (paletas), fundos, plataformas, bandeira, espinhos
 js/player.js      o soldado (movimento, física, desenho) e o tiro
 js/enemies.js     IA + física + desenho dos 7 inimigos
-js/levels.js      createLevel() + as 20 fases
+js/levels.js      createLevel() + as 23 fases
 js/game.js        loop principal, fluxo de fases, render, bootstrap (carrega por último)
 ```
 

@@ -4,11 +4,12 @@
 // =====================================================================
 
 function makePlayer(x, y){
-  return { x, y, w: 26, h: 34, vx: 0, vy: 0, onGround: false, face: 1, dead: false, animT: 0, muzzle: 0, jumpBuf: 0 };
+  return { x, y, w: 26, h: PLAYER_H, vx: 0, vy: 0, onGround: false, face: 1, dead: false, animT: 0, muzzle: 0, jumpBuf: 0, crouch: false };
 }
 
-// ---------- Tiro ----------
+// ---------- Tiro (BAZUCA: dispara foguetes que explodem em área) ----------
 let bullets = [];
+let blasts = [];      // explosões dos foguetes
 let fireCD = 0;
 
 function handleShooting(L){
@@ -17,11 +18,12 @@ function handleShooting(L){
   if (p.muzzle > 0) p.muzzle--;
   const firing = keys.KeyX || keys.KeyZ || keys.KeyF;
   if (firing && fireCD === 0 && !p.dead){
-    fireCD = 9; // cadência de tiro (frames)
-    bullets.push({ x: p.x + p.w/2 + p.face*20, y: p.y + 16, vx: p.face*11, life: 70 });
-    p.muzzle = 4;            // clarão
-    p.vx -= p.face * 0.7;    // recuo
-    shakeT = Math.max(shakeT, 3);
+    fireCD = 8; // arminha de brinquedo: cadência rápida
+    const hue = Math.floor(Math.random() * 6) * 60;   // bolinha de cor aleatória
+    bullets.push({ x: p.x + p.w/2 + p.face*18, y: p.y + 16, vx: p.face*9, life: 70, hue });
+    p.muzzle = 3;           // pop colorido
+    p.vx -= p.face * 0.3;   // recuo fraquinho
+    shakeT = Math.max(shakeT, 1);
     Sfx.shoot();
   }
 }
@@ -31,12 +33,114 @@ function updateBullets(){
   bullets = bullets.filter(b => b.life > 0 && b.x > -20 && b.x < W + 20);
 }
 
+// Explosão do foguete: efeito + dano em área aos inimigos próximos.
+function explodeAt(x, y, L){
+  blasts.push({ x, y, r: 8, max: 52, life: 20 });
+  shakeT = Math.max(shakeT, 12);
+  Sfx.explosion();
+  const R = 52;
+  for (const e of L.enemies){
+    if (!e.alive) continue;
+    const dx = (e.x + e.w/2) - x, dy = (e.y + e.h/2) - y;
+    if (dx*dx + dy*dy <= R*R){
+      e.hp -= 3; e.flash = 6;
+      if (e.hp <= 0){ e.alive = false; e.vy = -5; e.dir = dx < 0 ? -1 : 1; Sfx.kill(); }
+      else Sfx.hurt();
+    }
+  }
+}
+
+function updateBlasts(){
+  for (const x of blasts){ x.r += (x.max - x.r) * 0.3; x.life--; }
+  blasts = blasts.filter(x => x.life > 0);
+}
+
+function drawBlasts(){
+  for (const e of blasts){
+    const a = e.life / 20;
+    ctx.fillStyle = `rgba(255,170,60,${0.45*a})`;
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = `rgba(255,90,30,${0.7*a})`;
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.r*0.6, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = `rgba(255,245,190,${a})`;
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.r*0.3, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = `rgba(255,200,120,${0.6*a})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI*2); ctx.stroke();
+  }
+}
+
 function drawBullets(){
   for (const b of bullets){
-    ctx.fillStyle = "rgba(255,170,50,.45)";          // rastro
-    ctx.fillRect(b.x - Math.sign(b.vx)*12, b.y, 12, 2);
-    ctx.fillStyle = "#ffd23f";                        // traçante
-    ctx.fillRect(b.x - 4, b.y, 8, 2);
+    const dir = Math.sign(b.vx) || 1;
+    const hue = b.hue || 40;
+    // rastrinho colorido
+    ctx.fillStyle = `hsla(${hue}, 90%, 60%, .25)`;
+    ctx.beginPath(); ctx.arc(b.x - dir*7, b.y, 3, 0, Math.PI*2); ctx.fill();
+    // bolinha de brinquedo
+    ctx.fillStyle = `hsl(${hue}, 90%, 58%)`;
+    ctx.beginPath(); ctx.arc(b.x, b.y, 4.5, 0, Math.PI*2); ctx.fill();
+    // brilho
+    ctx.fillStyle = "rgba(255,255,255,.7)";
+    ctx.beginPath(); ctx.arc(b.x - 1.5, b.y - 1.5, 1.4, 0, Math.PI*2); ctx.fill();
+  }
+}
+
+// ---------- Granada (arma secundária: tecla P / botão 💣) ----------
+let grenades = [];
+let grenadeCD = 0;
+
+function handleGrenade(L){
+  const p = L.player;
+  if (grenadeCD > 0) grenadeCD--;
+  if (PRESS.KeyP && grenadeCD === 0 && !p.dead){
+    grenadeCD = 45;   // intervalo entre arremessos
+    grenades.push({ x: p.x + p.w/2 + p.face*10, y: p.y + 6, vx: p.face*7, vy: -8, fuse: 75, r: 6 });
+    Sfx.swoosh();
+  }
+}
+
+function updateGrenades(L){
+  for (const g of grenades){
+    g.vy += GRAV; if (g.vy > 16) g.vy = 16;
+    g.x += g.vx; g.y += g.vy;
+    const box = { x: g.x - g.r, y: g.y - g.r, w: g.r*2, h: g.r*2 };
+    for (const pl of L.platforms){
+      if (!hit(box, pl)) continue;
+      if (g.vy > 0 && g.y < pl.y + 8){           // pousa/quica no topo
+        g.y = pl.y - g.r; g.vy *= -0.4; g.vx *= 0.7;
+        if (Math.abs(g.vy) < 1.5) g.vy = 0;
+      } else { g.vx *= -0.4; }                    // bate de lado
+    }
+    if (g.x < g.r){ g.x = g.r; g.vx *= -0.4; }
+    if (g.x > W - g.r){ g.x = W - g.r; g.vx *= -0.4; }
+    g.fuse--;
+  }
+  for (const g of grenades) if (g.fuse <= 0) explodeAt(g.x, g.y, L);   // estoura no tempo
+  grenades = grenades.filter(g => g.fuse > 0);
+}
+
+function drawGrenades(){
+  for (const g of grenades){
+    const dir = Math.sign(g.vx) || 1;
+    ctx.save(); ctx.translate(g.x, g.y); ctx.scale(dir, 1);
+    // corpo do patinho de borracha
+    ctx.fillStyle = "#ffd23f";
+    ctx.beginPath(); ctx.ellipse(-1, 1, g.r + 1, g.r - 1, 0, 0, Math.PI*2); ctx.fill();
+    // cabeça
+    ctx.beginPath(); ctx.arc(g.r - 2, -g.r + 1, g.r - 2, 0, Math.PI*2); ctx.fill();
+    // asinha
+    ctx.fillStyle = "#f0b400";
+    ctx.beginPath(); ctx.ellipse(-2, 1, 2.5, 3.5, 0, 0, Math.PI*2); ctx.fill();
+    // bico
+    ctx.fillStyle = "#ff8c1a";
+    ctx.beginPath(); ctx.moveTo(g.r, -g.r + 1); ctx.lineTo(g.r + 5, -g.r + 2); ctx.lineTo(g.r, -g.r + 4); ctx.fill();
+    // olho
+    ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(g.r - 1, -g.r, 1, 0, Math.PI*2); ctx.fill();
+    // pavio aceso piscando perto de explodir
+    if (g.fuse < 26 && g.fuse % 8 < 4){
+      ctx.fillStyle = "#ff3c2e"; ctx.beginPath(); ctx.arc(0, -g.r - 2, 2, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
   }
 }
 
@@ -45,9 +149,26 @@ function movePlayer(L){
   const p = L.player;
   if (p.dead) return;
 
-  const running = keys.ShiftLeft || keys.ShiftRight;
-  const mv = running ? MOVE * RUN_MULT : MOVE;
-  const maxvx = running ? MAXVX * RUN_MULT : MAXVX;
+  // agachar: só no chão; encolhe a hitbox mantendo os pés no lugar.
+  const wantCrouch = keys.ArrowDown && p.onGround;
+  if (wantCrouch && !p.crouch) {
+    p.crouch = true;
+    p.y += (PLAYER_H - CROUCH_H);
+    p.h = CROUCH_H;
+  } else if (!wantCrouch && p.crouch) {
+    // só levanta se houver espaço acima (não atravessa teto)
+    const stand = { x: p.x, y: p.y - (PLAYER_H - CROUCH_H), w: p.w, h: PLAYER_H };
+    let blocked = false;
+    for (const pl of L.platforms) {
+      if (pl.solidTop) continue;
+      if (hit(stand, pl)) { blocked = true; break; }
+    }
+    if (!blocked) { p.y -= (PLAYER_H - CROUCH_H); p.h = PLAYER_H; p.crouch = false; }
+  }
+
+  const running = (keys.ShiftLeft || keys.ShiftRight) && !p.crouch;
+  const mv = (running ? MOVE * RUN_MULT : MOVE) * (p.crouch ? 0.35 : 1);
+  const maxvx = (running ? MAXVX * RUN_MULT : MAXVX) * (p.crouch ? 0.4 : 1);
   if (keys.ArrowLeft)  { p.vx -= mv; p.face = -1; }
   if (keys.ArrowRight) { p.vx += mv; p.face = 1; }
   p.vx *= FRICTION;
@@ -147,18 +268,16 @@ function drawPlayer(p){
   ctx.fillStyle = dead ? "#777" : "#3a3326";       // cinto
   ctx.fillRect(-p.w/2, p.h*0.04 + bob, p.w, 3);
 
-  // fuzil à frente (x positivo)
+  // arminha de brinquedo (x positivo = frente)
   if (!dead) {
-    ctx.fillStyle = "#2b2b2b";
-    ctx.fillRect(2, -p.h/2 + 16 + bob, 18, 3);      // cano
-    ctx.fillRect(4, -p.h/2 + 19 + bob, 5, 5);       // corpo da arma
-    ctx.fillStyle = "#5b3a1e";
-    ctx.fillRect(1, -p.h/2 + 19 + bob, 3, 6);       // coronha
-    if (p.muzzle > 0) {                             // clarão do disparo
-      ctx.fillStyle = "#fff0a0";
-      ctx.beginPath(); ctx.arc(22, -p.h/2 + 17 + bob, 5, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = "rgba(255,180,60,.7)";
-      ctx.beginPath(); ctx.arc(26, -p.h/2 + 17 + bob, 3, 0, Math.PI*2); ctx.fill();
+    const gy = -p.h/2 + 16 + bob;
+    ctx.fillStyle = "#ff7a1a"; roundRect(0, gy, 17, 6, 2); ctx.fill();   // corpo laranja
+    ctx.fillStyle = "#ffd23f"; ctx.fillRect(16, gy+1, 5, 4);            // bico amarelo (ponta de brinquedo)
+    ctx.fillStyle = "#33aaff"; roundRect(0, gy+5, 6, 7, 2); ctx.fill(); // cabo azul
+    ctx.fillStyle = "#2a7fbf"; ctx.fillRect(6, gy+6, 2, 4);             // gatilho
+    if (p.muzzle > 0) {                                                 // pop colorido na boca
+      ctx.fillStyle = "rgba(255,225,90,.9)";
+      ctx.beginPath(); ctx.arc(23, gy+3, 3.5, 0, Math.PI*2); ctx.fill();
     }
   }
 

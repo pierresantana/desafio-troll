@@ -39,7 +39,7 @@ function createLevel(def){
                   sndT: 30 + Math.floor(Math.random()*150), ...opts };
       L.enemies.push(e); return e;
     },
-    kill(){ if(!L.player.dead){ L.player.dead = true; shakeT = 18; Sfx.die(); } },
+    kill(){ if(!L.player.dead){ L.player.dead = true; shakeT = 18; Sfx.die(); Sfx.explosion(); } },
   };
   def.build(L);
   return L;
@@ -181,9 +181,9 @@ const LEVELS = [
 
 // --- Fase 3: a plataforma traidora --------------------------------
 {
-  mission: "Fase 3 — Atravesse pelas plataformas até a bandeira.",
+  mission: "Fase 3 — Atravesse a base militar destruída até a bandeira.",
   hint: "Pise com confiança.",
-  theme: "forest",
+  theme: "base",
   spawn: { x: 30, y: 250 },
   build(L){
     L.addPlatform(0, 360, 140, 90);
@@ -656,4 +656,503 @@ const LEVELS = [
   },
   draw(L){ drawSpikes(L.data.spikes); }
 },
+
+// --- Fase 21: a casa abandonada -----------------------------------
+{
+  mission: "Fase 21 — Atravesse a casa abandonada até a porta dos fundos.",
+  hint: "O assoalho está podre. Se o teto desabar, CORRA — quem hesita não passa.",
+  theme: "house",
+  spawn: { x: 20, y: 300 },
+  build(L){
+    L.addPlatform(0, 360, 180, 90);
+    // assoalho de tábuas podres que cedem sobre o porão (largas, com folga)
+    L.data.floaters = [];
+    for (const x of [180, 320, 460]){
+      const pl = L.addPlatform(x, 360, 130, 16, { solidTop:true });
+      pl.triggered = false; pl.grace = 0; pl.vy = 0;
+      L.data.floaters.push(pl);
+    }
+    L.addPlatform(600, 360, 200, 90);
+    L.addHazard(180, 416, 420, 60);          // porão escuro sob as tábuas
+    L.goal = { x: 752, y: 320, w: 22, h: 40 };
+    L.addEnemy("ghost", 520, 200, { fly:true, chase:true, speed:0.8, hp:1 });
+
+    // TROLL: botão invisível no assoalho. Ao pisar, um tanque de guerra
+    // destruído despenca do teto À FRENTE. A queda é calibrada para que,
+    // CORRENDO (Shift), o jogador atravesse a sombra a tempo; andando ou
+    // parando, o tanque cai em cima e esmaga.
+    L.data.btn = { x: 230, w: 70, pressed: false };
+    L.data.tank = { x: 350, y: -160, w: 120, h: 84, vy: 0, falling: false, landed: false };
+    L.data.tankFloor = null;
+  },
+  update(L){
+    crumbleStep(L, 80);                       // mais tempo em cima antes da tábua ceder
+    const p = L.player, b = L.data.btn, tk = L.data.tank;
+    // gatilho invisível: pisar (no chão) sobre a zona do botão
+    if (!b.pressed && p.onGround &&
+        p.x + p.w/2 > b.x && p.x + p.w/2 < b.x + b.w){
+      b.pressed = true; tk.falling = true; shakeT = 16; Sfx.rumble();
+    }
+    if (tk.falling){
+      tk.vy += 0.6; tk.y += tk.vy;          // queda mais lenta = janela pra correr
+      const landY = 360 - tk.h;
+      if (tk.y >= landY){
+        tk.y = landY; tk.falling = false; tk.landed = true;
+        shakeT = 22; Sfx.rumble();
+        // o destroço vira obstáculo sólido (precisa pular por cima)
+        L.data.tankFloor = L.addPlatform(tk.x, tk.y + tk.h*0.3, tk.w, tk.h*0.7,
+                                         { solidTop:true, invisible:true });
+      }
+      // só esmaga se o jogador NÃO estiver correndo; correndo (Shift), ele passa.
+      const running = keys.ShiftLeft || keys.ShiftRight;
+      if (hit(p, tk) && !running) L.kill();
+    }
+  },
+  draw(L){
+    crumbleCracks(L);
+    // porão escuro escancarado sob as tábuas
+    for (const z of L.hazards){
+      let g = ctx.createLinearGradient(0, z.y - 8, 0, H);
+      g.addColorStop(0, "#0c0906"); g.addColorStop(1, "#000");
+      ctx.fillStyle = g; ctx.fillRect(z.x, z.y - 8, z.w, H - (z.y - 8));
+    }
+    const tk = L.data.tank;
+    if (tk.falling){
+      // sombra no chão avisando onde o tanque vai cair (quanto mais perto, mais escura)
+      const prog = Math.max(0, Math.min(1, (tk.y + 160) / 436));
+      ctx.fillStyle = `rgba(0,0,0,${0.15 + prog*0.4})`;
+      ctx.beginPath();
+      ctx.ellipse(tk.x + tk.w/2, 358, tk.w/2 * (0.55 + prog*0.45), 8, 0, 0, Math.PI*2);
+      ctx.fill();
+    }
+    if (tk.falling || tk.landed) drawWreckedTank(tk);
+  }
+},
+
+// --- Fase 22: o hospital abandonado -------------------------------
+{
+  mission: "Fase 22 — O hospital abandonado. Alcance a saída.",
+  hint: "O corredor parece vazio. Não acorde o que dorme no fim dele.",
+  theme: "hospital",
+  spawn: { x: 20, y: 300 },
+  build(L){
+    L.addPlatform(0, 360, W, 90, { invisible:true }); // chão invisível
+    L.goal = { x: 752, y: 320, w: 22, h: 40 };
+    // ARMADILHA: um esqueleto GIGANTE adormecido no fim do corredor.
+    const sc = 2.6;
+    L.data.boss = L.addEnemy("skeleton", 700, 360 - 34*sc,
+                             { dir:-1, speed:0, hp:7, chase:false, scale:sc });
+    L.data.bossWoke = false;
+    // TRÊS ASSASSINOS ágeis rondando o corredor (faca = morte ao toque)
+    for (const kx of [300, 470, 620])
+      L.addEnemy("killer", kx, 360 - 34, { dir:-1, speed:2.0, hp:2, chase:true });
+  },
+  update(L){
+    // mantém os inimigos terrestres sobre o chão invisível (senão caem por ele)
+    for (const e of L.enemies){
+      if (e.alive && !e.fly){ e.y = 360 - e.h; e.vy = 0; e.onGround = true; }
+    }
+    // o gigante desperta e passa a perseguir ao avançar no corredor
+    const b = L.data.boss;
+    if (b && b.alive && !L.data.bossWoke && L.player.x > 360){
+      L.data.bossWoke = true; b.chase = true; b.speed = 1.6;
+      shakeT = 22; Sfx.skeleton(); Sfx.rumble();
+    }
+  },
+  draw(L){}
+},
+
+// --- Fase 23: a emboscada dos assassinos --------------------------
+{
+  mission: "Fase 23 — A emboscada. Dez assassinos na rua. Abra caminho até a bandeira.",
+  hint: "Eles vêm de todos os lados. Não pare de atirar — nem de correr.",
+  theme: "city",
+  spawn: { x: 40, y: 300 },
+  build(L){
+    L.addPlatform(0, 360, W, 90);
+    L.goal = { x: 745, y: 320, w: 22, h: 40 };
+    // dez assassinos espalhados, todos perseguindo (faca = morte ao toque)
+    const spots = [ [180,-1],[280,-1],[380, 1],[470,-1],[560, 1],
+                    [640,-1],[720,-1],[150, 1],[330, 1],[700,-1] ];
+    for (const [x, dir] of spots)
+      L.addEnemy("killer", x, 360 - 34,
+                 { dir, speed: 1.6 + Math.random()*0.6, hp: 1, chase: true });
+  },
+  update(L){},
+  draw(L){}
+},
+
+// --- Fase 24: o zumbi gigante -------------------------------------
+{
+  mission: "Fase 24 — O apocalipse. Um zumbi GIGANTE bloqueia a saída.",
+  hint: "O braço dele varre na altura da sua cabeça. ABAIXE (↓) e passe por baixo.",
+  theme: "apocalypse",
+  spawn: { x: 30, y: 300 },
+  build(L){
+    L.addPlatform(0, 360, W, 90);
+    L.goal = { x: 760, y: 320, w: 22, h: 40 };
+
+    // ZUMBI GIGANTE: avança devagar com o braço estendido. O CORPO não mata
+    // (noTouch) — você atravessa por baixo dele; quem mata é a GARRA.
+    const sc = 3.0;
+    const gh = 34 * sc;
+    // maxX trava o avanço dele no miolo do mapa: a garra nunca alcança a bandeira.
+    L.data.giant = L.addEnemy("zombie", 600, 360 - gh,
+                              { dir:-1, speed:1.1, hp:999, chase:true, scale:sc, noTouch:true, maxX:520 });
+
+    // garra/braço: hazard na altura do tronco -> só passa ABAIXADO.
+    // hitbox y 314..332: pega quem está em pé (topo 326), livra quem agacha (topo 338).
+    L.data.claw = L.addHazard(-9999, 314, 96, 18);
+
+    // ARMADILHAS INVISÍVEIS (5, espalhadas pela fase): pisar num botão escondido
+    // dispara uma pedra gigante que despenca na coluna de quem pisou. Tanto o
+    // jogador quanto os inimigos (inclusive o gigante) podem acionar e ser esmagados.
+    L.data.traps = [];
+    for (const cx of [150, 300, 430, 560, 680]){
+      L.data.traps.push({
+        btn:  { x: cx - 34, w: 68, pressed: false },
+        rock: { x: cx, y: -60, r: 22, vy: 0, falling: false, landed: false, hits: null },
+      });
+    }
+  },
+  update(L){
+    const p = L.player, g = L.data.giant, claw = L.data.claw;
+
+    // --- braço do gigante: sempre estendido à frente, na direção do jogador ---
+    if (g && g.alive){
+      const reach = 104;
+      claw.y = 314; claw.w = reach;
+      claw.x = (g.dir < 0) ? (g.x - reach + 8) : (g.x + g.w - 8);
+    } else {
+      claw.x = -9999;
+    }
+
+    // --- armadilhas: 5 botões invisíveis (jogador OU inimigo aciona) ---
+    const onBtn = (ent, b) => ent.onGround && (ent.x + ent.w/2) > b.x && (ent.x + ent.w/2) < b.x + b.w;
+    for (const tr of L.data.traps){
+      const b = tr.btn, rk = tr.rock;
+      if (!b.pressed){
+        let trg = null;
+        if (onBtn(p, b)) trg = p;
+        else for (const e of L.enemies){ if (e.alive && onBtn(e, b)){ trg = e; break; } }
+        if (trg){
+          b.pressed = true; rk.falling = true; rk.hits = new Set();
+          rk.x = trg.x + trg.w/2; rk.y = -rk.r; rk.vy = 0;   // cai na coluna de quem pisou
+          shakeT = 12; Sfx.rumble();
+        }
+      }
+      if (rk.falling){
+        rk.vy += 0.6; rk.y += rk.vy;
+        const box = { x: rk.x - rk.r, y: rk.y - rk.r, w: rk.r*2, h: rk.r*2 };
+        if (!p.dead && hit(box, p)) L.kill();                // esmaga o jogador
+        for (const e of L.enemies){                          // esmaga/fere inimigos (uma vez por pedra)
+          if (!e.alive || rk.hits.has(e) || !hit(box, e)) continue;
+          rk.hits.add(e); e.hp -= 3; e.flash = 6;
+          if (e.hp <= 0){ e.alive = false; e.vy = -3; Sfx.kill(); } else Sfx.hurt();
+        }
+        if (rk.y >= 360 - rk.r){                             // pousou no chão
+          rk.y = 360 - rk.r; rk.falling = false; rk.landed = true;
+          shakeT = 20; Sfx.explosion();
+        }
+      }
+    }
+  },
+  draw(L){
+    for (const tr of L.data.traps){
+      const rk = tr.rock;
+      if (rk.falling){                                       // sombra de aviso no chão
+        const prog = Math.max(0, Math.min(1, (rk.y + rk.r) / 360));
+        ctx.fillStyle = `rgba(0,0,0,${0.15 + prog*0.4})`;
+        ctx.beginPath(); ctx.ellipse(rk.x, 358, rk.r*(0.6 + prog*0.5), 7, 0, 0, Math.PI*2); ctx.fill();
+      }
+      if (rk.falling || rk.landed) drawRock(rk);
+    }
+    drawGiantArm(L.data.giant, L.data.claw);
+  }
+},
+
+// --- Fase 25: o depósito de explosivos ----------------------------
+{
+  mission: "Fase 25 — O depósito de explosivos. Use a bazuca a seu favor.",
+  hint: "Os barris estouram em cadeia. Detone-os perto dos zumbis — longe de você.",
+  theme: "factory",
+  spawn: { x: 30, y: 300 },
+  build(L){
+    L.addPlatform(0, 360, W, 90);
+    L.goal = { x: 760, y: 320, w: 22, h: 40 };
+
+    // zumbis avançando pela rua
+    L.addEnemy("zombie", 350, 320, { dir:-1, speed:1.0, hp:2, chase:true });
+    L.addEnemy("zombie", 520, 320, { dir:-1, speed:1.1, hp:2, chase:true });
+    L.addEnemy("zombie", 660, 320, { dir:-1, speed:1.0, hp:2, chase:true });
+
+    // barris explosivos: detonam com o foguete (ou a explosão de outro barril).
+    // pares próximos (240/270, 580/610) estouram em CADEIA.
+    L.data.barrels = [];
+    for (const x of [240, 270, 430, 580, 610, 690])
+      L.data.barrels.push({ x, y: 334, w: 18, h: 26, exploded: false });
+
+    // ARMADILHA: 4 poças de lava no chão -> matam ao toque, pule por cima.
+    L.data.lava = [];
+    for (const x of [200, 360, 500, 640])
+      L.data.lava.push(L.addHazard(x, 350, 46, 14));
+
+    // MALVADEZA: cada poça jorra um gêiser de lava de tempos em tempos.
+    // O jato é um hazard vertical (mortal) que sobe acima da poça.
+    L.data.jets = L.data.lava.map((z, i) => ({
+      hz: L.addHazard(z.x + 13, -9999, 20, 0),
+      bx: z.x, phase: "idle", t: 0, cd: 70 + i*28 + Math.floor(Math.random()*90),
+    }));
+
+    // CHUVA DE ESCOMBROS: detritos despencam do céu o tempo todo.
+    L.data.debris = [];
+    L.data.debrisCD = 30;
+
+    // HORDA DO CÉU: zumbis também despencam do alto e passam a perseguir.
+    L.data.zRainCD = 90;
+  },
+  update(L){
+    // bolinha acerta um barril -> detona
+    for (const b of bullets){
+      if (b.life <= 0) continue;
+      const bb = { x: b.x - 4, y: b.y - 3, w: 9, h: 6 };
+      for (const br of L.data.barrels){
+        if (!br.exploded && hit(bb, br)){ b.life = 0; explodeBarrel(L, br); break; }
+      }
+    }
+    // reação em cadeia: qualquer explosão ativa detona barris no seu raio
+    for (const br of L.data.barrels){
+      if (br.exploded) continue;
+      const cx = br.x + br.w/2, cy = br.y + br.h/2;
+      for (const bl of blasts){
+        const dx = bl.x - cx, dy = bl.y - cy;
+        if (dx*dx + dy*dy <= (bl.r + 6)*(bl.r + 6)){ explodeBarrel(L, br); break; }
+      }
+    }
+    // gêiseres de lava: idle -> warn (borbulha de aviso) -> erupt (jato mortal)
+    for (const j of L.data.jets){
+      j.t++;
+      if (j.phase === "idle"){
+        j.hz.y = -9999; j.hz.h = 0;
+        if (--j.cd <= 0){ j.phase = "warn"; j.t = 0; }
+      } else if (j.phase === "warn"){
+        if (j.t > 26){ j.phase = "erupt"; j.t = 0; shakeT = Math.max(shakeT, 7); }
+      } else { // erupt: coluna de lava sobe acima da poça
+        const h = 130;
+        j.hz.x = j.bx + 13; j.hz.w = 20; j.hz.y = 360 - h; j.hz.h = h;
+        if (j.t > 20){ j.phase = "idle"; j.cd = 120 + Math.floor(Math.random()*120); j.hz.y = -9999; j.hz.h = 0; }
+      }
+    }
+    // inimigos terrestres que tocam a lava (poça ou jato ativo) queimam
+    for (const e of L.enemies){
+      if (!e.alive || e.fly) continue;
+      let burned = false;
+      for (const z of L.data.lava){ if (hit(e, z)){ burned = true; break; } }
+      if (!burned) for (const j of L.data.jets){ if (j.phase === "erupt" && hit(e, j.hz)){ burned = true; break; } }
+      if (burned){ e.alive = false; e.vy = -4; Sfx.kill(); }
+    }
+
+    // CHUVA DE ESCOMBROS: cai do céu sem parar, em colunas aleatórias.
+    if (--L.data.debrisCD <= 0){
+      L.data.debrisCD = 32 + Math.floor(Math.random() * 36);
+      L.data.debris.push({
+        x: 30 + Math.random() * (W - 60), y: -20,
+        w: 14 + Math.random() * 12, h: 12 + Math.random() * 10,
+        vy: 2 + Math.random() * 2, rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.3,
+        landed: false, life: 0,
+      });
+    }
+    const pl = L.player;
+    for (const d of L.data.debris){
+      if (d.landed){ d.life--; continue; }
+      d.vy += 0.35; d.y += d.vy; d.rot += d.vr;
+      const box = { x: d.x - d.w/2, y: d.y - d.h/2, w: d.w, h: d.h };
+      if (!pl.dead && hit(box, pl)) L.kill();                       // esmaga o jogador
+      for (const e of L.enemies){                                   // e os monstros terrestres
+        if (e.alive && !e.fly && hit(box, e)){ e.alive = false; e.vy = -4; Sfx.kill(); }
+      }
+      if (d.y + d.h/2 >= 360){ d.landed = true; d.life = 40; d.y = 360 - d.h/2; shakeT = Math.max(shakeT, 4); }
+    }
+    L.data.debris = L.data.debris.filter(d => !d.landed || d.life > 0);
+
+    // HORDA DO CÉU: zumbis despencam do alto (caem por gravidade e pousam no chão).
+    if (--L.data.zRainCD <= 0 && L.enemies.filter(e => e.alive).length < 8){
+      L.data.zRainCD = 140 + Math.floor(Math.random() * 120);
+      const sx = 60 + Math.random() * (W - 120);
+      L.addEnemy("zombie", sx, -40, { dir:-1, speed: 1.0 + Math.random()*0.4, hp: 2, chase: true });
+    }
+  },
+  draw(L){
+    for (const z of L.data.lava) drawLava(z, L.t);
+    for (const j of L.data.jets) drawJet(j, L.t);
+    for (const br of L.data.barrels) if (!br.exploded) drawBarrel(br);
+    for (const d of L.data.debris){
+      if (!d.landed){                                  // sombra de aviso no chão
+        const prog = Math.max(0, Math.min(1, d.y / 360));
+        ctx.fillStyle = `rgba(0,0,0,${0.12 + prog*0.3})`;
+        ctx.beginPath(); ctx.ellipse(d.x, 358, d.w*0.5*(0.6 + prog*0.5), 5, 0, 0, Math.PI*2); ctx.fill();
+      }
+      drawDebris(d);
+    }
+  }
+},
 ];
+
+// Escombro caindo do céu (bloco de concreto com vergalhão)
+function drawDebris(d){
+  ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.rot);
+  ctx.fillStyle = "#6b6660"; ctx.fillRect(-d.w/2, -d.h/2, d.w, d.h);
+  ctx.fillStyle = "#807a72"; ctx.fillRect(-d.w/2, -d.h/2, d.w, 3);          // topo claro
+  ctx.fillStyle = "rgba(0,0,0,.28)"; ctx.fillRect(-d.w/2, d.h/2 - 3, d.w, 3); // base escura
+  ctx.strokeStyle = "#3a3733"; ctx.lineWidth = 2;                           // vergalhão saindo
+  ctx.beginPath(); ctx.moveTo(d.w/2, -2); ctx.lineTo(d.w/2 + 5, -6); ctx.stroke();
+  ctx.restore();
+}
+
+// Gêiser de lava: borbulha de aviso (warn) e jato vertical mortal (erupt)
+function drawJet(j, t){
+  if (j.phase === "warn"){
+    ctx.fillStyle = "rgba(255,150,40,.75)";              // esguichos curtos avisando
+    for (let i=0;i<3;i++){ const jx = j.bx + 10 + i*12; const hh = 5 + Math.abs(Math.sin(t*0.5 + i))*12;
+      ctx.fillRect(jx, 350 - hh, 3, hh); }
+    return;
+  }
+  if (j.phase !== "erupt") return;
+  const hz = j.hz;
+  const g = ctx.createLinearGradient(0, hz.y, 0, hz.y + hz.h);
+  g.addColorStop(0, "#ffe066"); g.addColorStop(.45, "#ff7a1a"); g.addColorStop(1, "#e2521b");
+  ctx.fillStyle = g; ctx.fillRect(hz.x, hz.y, hz.w, hz.h);
+  ctx.fillStyle = "#ffe066";                              // topo arredondado
+  ctx.beginPath(); ctx.arc(hz.x + hz.w/2, hz.y, hz.w/2 + 1, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "rgba(255,190,70,.6)";                  // respingos
+  for (let i=0;i<4;i++){ const rx = Math.sin(t*0.4 + i*1.7)*9;
+    ctx.beginPath(); ctx.arc(hz.x + hz.w/2 + rx, hz.y - 5 - i*5, 2.4, 0, Math.PI*2); ctx.fill(); }
+}
+
+// Poça de lava borbulhante (perigo no chão)
+function drawLava(z, t){
+  ctx.fillStyle = "rgba(255,120,40,.16)"; ctx.fillRect(z.x - 3, z.y - 9, z.w + 6, 9);   // halo de calor
+  ctx.fillStyle = "#e2521b"; ctx.fillRect(z.x, z.y, z.w, z.h);                            // magma
+  const glow = 0.45 + Math.sin(t * 0.1) * 0.2;
+  ctx.fillStyle = `rgba(255,215,90,${glow})`; ctx.fillRect(z.x, z.y, z.w, 4);             // crosta incandescente
+  ctx.fillStyle = "#ffd24a";                                                              // bolhas subindo
+  for (let i = 0; i < 3; i++){
+    const bx = z.x + 8 + i * (z.w / 3) + Math.sin(t * 0.12 + i * 2) * 3;
+    const by = z.y + 7 + Math.sin(t * 0.2 + i) * 2;
+    ctx.beginPath(); ctx.arc(bx, by, 2.2, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+// Detona um barril explosivo: efeito + dano em raio aos inimigos E ao jogador.
+function explodeBarrel(L, br){
+  if (br.exploded) return;
+  br.exploded = true;
+  const cx = br.x + br.w/2, cy = br.y + br.h/2;
+  blasts.push({ x: cx, y: cy, r: 10, max: 66, life: 22 });
+  shakeT = Math.max(shakeT, 16);
+  Sfx.explosion();
+  const R = 64;
+  for (const e of L.enemies){
+    if (!e.alive) continue;
+    const dx = (e.x + e.w/2) - cx, dy = (e.y + e.h/2) - cy;
+    if (dx*dx + dy*dy <= R*R){
+      e.hp -= 4; e.flash = 6;
+      if (e.hp <= 0){ e.alive = false; e.vy = -5; e.dir = dx < 0 ? -1 : 1; Sfx.kill(); }
+    }
+  }
+  const p = L.player;
+  if (!p.dead){
+    const dx = (p.x + p.w/2) - cx, dy = (p.y + p.h/2) - cy;
+    if (dx*dx + dy*dy <= R*R) L.kill();        // a explosão também mata quem disparou se estiver perto
+  }
+}
+
+// Barril explosivo (vermelho, com símbolo de perigo)
+function drawBarrel(br){
+  const { x, y, w, h } = br;
+  ctx.fillStyle = "#b03a2e"; roundRect(x, y, w, h, 3); ctx.fill();          // corpo
+  ctx.fillStyle = "#7d2820"; ctx.fillRect(x, y + h*0.30, w, 3); ctx.fillRect(x, y + h*0.62, w, 3); // aros
+  ctx.fillStyle = "rgba(255,255,255,.18)"; ctx.fillRect(x + 3, y + 3, 3, h - 6); // brilho
+  ctx.fillStyle = "#e6c63f";                                                // triângulo de perigo
+  ctx.beginPath(); ctx.moveTo(x + w/2, y + 6); ctx.lineTo(x + w - 3, y + 17); ctx.lineTo(x + 3, y + 17); ctx.fill();
+  ctx.fillStyle = "#111"; ctx.fillRect(x + w/2 - 1, y + 10, 2, 4); ctx.fillRect(x + w/2 - 1, y + 15, 2, 2); // "!"
+}
+
+// Pedra/bola gigante da armadilha (cai do alto e esmaga)
+function drawRock(rk){
+  const x = rk.x, y = rk.y, r = rk.r;
+  ctx.fillStyle = "#57534b"; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#454139";                                // sombreado (lado inferior)
+  ctx.beginPath(); ctx.arc(x + r*0.28, y + r*0.28, r*0.72, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#6f6b63";                                // realce (lado superior)
+  ctx.beginPath(); ctx.arc(x - r*0.3, y - r*0.32, r*0.42, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "rgba(0,0,0,.28)";                        // crateras
+  for (const [dx,dy,rr] of [[-0.32,0.12,0.16],[0.28,-0.18,0.13],[0.06,0.42,0.11]])
+    { ctx.beginPath(); ctx.arc(x + dx*r, y + dy*r, rr*r, 0, Math.PI*2); ctx.fill(); }
+}
+
+// Braço esticado do zumbi gigante + garra (perigo na altura da cabeça).
+// Liga o ombro do gigante à garra mortal (o hazard L.data.claw).
+function drawGiantArm(g, claw){
+  if (!g || !g.alive) return;
+  const dir = g.dir < 0 ? -1 : 1;
+  const armY = claw.y + claw.h/2;                 // centro vertical da faixa mortal
+  const shoulderX = g.x + g.w/2;                  // ombro ~ centro do gigante
+  const handX = dir < 0 ? claw.x : claw.x + claw.w;
+
+  // antebraço grosso, pele esverdeada apodrecida
+  ctx.strokeStyle = "#6a7b3a"; ctx.lineWidth = 16; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(shoulderX, armY - 2); ctx.lineTo(handX, armY); ctx.stroke();
+  // faixas de carne escura
+  ctx.strokeStyle = "#46532a"; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(shoulderX, armY - 4); ctx.lineTo(handX, armY - 2); ctx.stroke();
+
+  // mão + garras na ponta
+  ctx.fillStyle = "#7e9145";
+  ctx.beginPath(); ctx.arc(handX, armY, 11, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = "#d8d2c0"; ctx.lineWidth = 3;
+  for (const dy of [-7, 0, 7]){
+    ctx.beginPath(); ctx.moveTo(handX, armY + dy);
+    ctx.lineTo(handX + dir*16, armY + dy*1.3); ctx.stroke();
+  }
+}
+
+// Tanque de guerra destruído (blindado abandonado, canhão torto)
+function drawWreckedTank(t){
+  const x = t.x, y = t.y, w = t.w, h = t.h;
+  const olive = "#3f4632", oliveLit = "#4a5238", dark = "#262b1d";
+  // esteira (lagarta) inferior
+  ctx.fillStyle = "#1a1a1a";
+  roundRect(x, y + h*0.62, w, h*0.34, 10); ctx.fill();
+  ctx.fillStyle = "#2c2c2c";                                   // rodas da esteira
+  for (let i=0;i<6;i++){ const wx = x + w*0.1 + i*(w*0.8/5);
+    ctx.beginPath(); ctx.arc(wx, y + h*0.80, h*0.10, 0, Math.PI*2); ctx.fill(); }
+  ctx.strokeStyle = "#111"; ctx.lineWidth = 3;                 // elos da esteira
+  ctx.strokeRect(x+2, y + h*0.64, w-4, h*0.30);
+  // casco (chassi)
+  ctx.fillStyle = olive; roundRect(x + w*0.04, y + h*0.42, w*0.92, h*0.26, 5); ctx.fill();
+  // torre amassada
+  ctx.fillStyle = oliveLit;
+  ctx.beginPath();
+  ctx.moveTo(x + w*0.30, y + h*0.42);
+  ctx.lineTo(x + w*0.36, y + h*0.16);
+  ctx.lineTo(x + w*0.62, y + h*0.14);
+  ctx.lineTo(x + w*0.70, y + h*0.42);
+  ctx.fill();
+  // escotilha estourada
+  ctx.fillStyle = dark;
+  ctx.beginPath(); ctx.ellipse(x + w*0.49, y + h*0.18, w*0.06, h*0.05, 0, 0, Math.PI*2); ctx.fill();
+  // canhão torto pra cima
+  ctx.save(); ctx.translate(x + w*0.62, y + h*0.26); ctx.rotate(-0.35);
+  ctx.fillStyle = "#2f3526"; ctx.fillRect(0, -5, w*0.42, 10);
+  ctx.fillStyle = dark; ctx.fillRect(w*0.40, -6, 6, 12); ctx.restore();
+  // buraco de impacto + ferrugem
+  ctx.fillStyle = dark;
+  ctx.beginPath(); ctx.arc(x + w*0.40, y + h*0.52, h*0.07, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = "rgba(120,70,30,.5)"; ctx.lineWidth = 2;
+  for (const fx of [0.2, 0.5, 0.85]){ ctx.beginPath();
+    ctx.moveTo(x + w*fx, y + h*0.44); ctx.lineTo(x + w*fx + 5, y + h*0.6); ctx.stroke(); }
+  // fumaça subindo do destroço
+  ctx.fillStyle = "rgba(40,40,40,.35)";
+  for (const sx of [0.45, 0.6]) { ctx.beginPath(); ctx.arc(x + w*sx, y - 6, 8, 0, Math.PI*2); ctx.fill(); }
+}

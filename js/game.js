@@ -7,7 +7,7 @@
 function loadLevel(i){
   levelIndex = i;
   level = createLevel(LEVELS[i]);
-  bullets = []; fireCD = 0;
+  bullets = []; blasts = []; grenades = []; fireCD = 0; grenadeCD = 0;
   mtext.textContent = LEVELS[i].mission;
   mhint.textContent = LEVELS[i].hint;
 }
@@ -37,13 +37,26 @@ function showOverlay(title, html, btn){
   document.getElementById("startBtn").onclick = startGame;
 }
 
+// Atalho de desenvolvimento (não divulgar): ?level=N pula direto pra fase N
+// (1-indexado). Útil para testar fases novas.
+function startLevelFromQuery(){
+  try {
+    const q = new URLSearchParams(location.search);
+    const raw = q.get("level");
+    if (raw == null) return 0;
+    const n = parseInt(raw, 10);
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(0, Math.min(LEVELS.length - 1, n - 1));
+  } catch(e){ return 0; }
+}
+
 function startGame(){
   Sfx.resume();          // libera o áudio no clique (exigência dos navegadores)
   Sfx.startMusic();      // música sombria de fundo em loop
   deaths = 0;
   overlay.classList.add("hidden");
   state = "play";
-  loadLevel(0);
+  loadLevel(startLevelFromQuery());
 }
 
 // ---------- Loop principal ----------
@@ -59,8 +72,11 @@ function frame(ts){
     LEVELS[levelIndex].update(level, dt);
     movePlayer(level);
     handleShooting(level);
+    handleGrenade(level);
     updateBullets();
+    updateGrenades(level);
     updateEnemies(level);
+    updateBlasts();
 
     if (level.player.dead){
       if (!level._counted){ level._counted = true; deaths++; deathsEl.textContent = "Mortes: " + deaths;
@@ -92,6 +108,8 @@ function render(){
       drawFlag(level.goal, level.goal.locked ? "#c0392b" : "#22aa55");
     drawEnemies(level);
     drawBullets();
+    drawGrenades();
+    drawBlasts();
     drawPlayer(level.player);
   }
   ctx.restore();

@@ -10,7 +10,7 @@ const keys = {};
 const PRESS = {};
 
 addEventListener("keydown", e => {
-  if (["ArrowLeft","ArrowRight","ArrowUp","Space"].includes(e.code)) e.preventDefault();
+  if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Space"].includes(e.code)) e.preventDefault();
   if (!keys[e.code]) PRESS[e.code] = true;   // borda de subida
   keys[e.code] = true;
   if (e.code === "KeyR") restartLevel();
@@ -74,8 +74,13 @@ function pollGamepad(){
   if (lx >  DEADZONE || btn(15)) want.add("ArrowRight");
   // pular: Y (3) ou A (0)
   if (btn(0) || btn(3)) want.add("ArrowUp");
+  // abaixar: stick p/ baixo ou D-pad ↓ (13)
+  const ly = ax[1] || 0;
+  if (ly > DEADZONE || btn(13)) want.add("ArrowDown");
   // atirar: X (2) ou B (1)
   if (btn(1) || btn(2)) want.add("KeyX");
+  // granada: LT (6)
+  if (btn(6)) want.add("KeyP");
   // correr: RB (5)
   if (btn(5)) want.add("ShiftLeft");
 

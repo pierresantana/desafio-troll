@@ -73,14 +73,14 @@ function updateEnemies(L){
     if (e.x + e.w > W){ e.x = W - e.w; e.dir = -1; }
     if (!e.fly && e.y > H + 120){ e.alive = false; }
 
-    // encosta no jogador -> mata
-    if (!p.dead && hit(e, p)) L.kill();
+    // encosta no jogador -> mata (exceto inimigos "noTouch", cujo perigo é outro)
+    if (!p.dead && !e.noTouch && hit(e, p)) L.kill();
   }
 
-  // balas atingem inimigos
+  // bolinhas da arminha atingem inimigos -> dano direto
   for (const b of bullets){
     if (b.life <= 0) continue;
-    const bb = { x: b.x - 4, y: b.y - 2, w: 8, h: 5 };
+    const bb = { x: b.x - 4, y: b.y - 3, w: 9, h: 6 };
     for (const e of L.enemies){
       if (!e.alive || !hit(bb, e)) continue;
       e.hp -= 1; e.flash = 6; b.life = 0;
@@ -97,8 +97,9 @@ function drawEnemy(e){
   ctx.save();
   ctx.translate(e.x + e.w/2, e.y + e.h/2);
   if (!e.alive){ ctx.rotate(Math.PI/2 * Math.min(1, e.deadT/12)); ctx.globalAlpha = Math.max(0.2, 1 - e.deadT/120); }
-  ctx.scale(e.dir < 0 ? -1 : 1, 1);
-  const w = e.w, h = e.h;
+  const s = e.scale || 1;
+  ctx.scale((e.dir < 0 ? -1 : 1) * s, s);   // espelha por direção e amplia se gigante
+  const w = e.w / s, h = e.h / s;            // desenha em dimensões-base; o scale faz crescer
   const sway = e.alive ? Math.sin(e.anim) * 2 : 0;
   if (e.flash > 0){ ctx.globalAlpha = (ctx.globalAlpha||1) * (e.flash % 2 ? 0.4 : 1); }
 
@@ -166,6 +167,29 @@ function drawEnemy(e){
     ctx.fillStyle = "#241a18"; ctx.beginPath(); ctx.arc(0, 4, 9, 0, Math.PI*2); ctx.fill(); // abdômen
     ctx.beginPath(); ctx.arc(0, -3, 5, 0, Math.PI*2); ctx.fill();                            // cabeça
     ctx.fillStyle = "#e23b3b"; ctx.fillRect(-3, -4, 2, 2); ctx.fillRect(1, -4, 2, 2);        // olhos
+  }
+  else if (e.type === "killer"){
+    // pernas
+    ctx.fillStyle = "#15171b";
+    ctx.fillRect(-7, h*0.12 + sway, 6, 12); ctx.fillRect(2, h*0.12 + sway, 6, 12);
+    // casaco/sobretudo escuro
+    ctx.fillStyle = "#22252b";
+    roundRect(-w/2, -h/2 + 8 + sway, w, h*0.6, 4); ctx.fill();
+    ctx.fillStyle = "#15171b"; ctx.fillRect(-w/2, h*0.02 + sway, w, 3);  // cinto
+    // braço + faca apontada à frente
+    ctx.fillStyle = "#2b2f36"; ctx.fillRect(2, -h/2 + 15 + sway, w/2, 4);
+    ctx.fillStyle = "#5b3a1e"; ctx.fillRect(w/2 - 1, -h/2 + 13 + sway, 4, 7); // cabo
+    ctx.fillStyle = "#cfd6dd";                                            // lâmina
+    ctx.beginPath();
+    ctx.moveTo(w/2 + 2, -h/2 + 12 + sway);
+    ctx.lineTo(w/2 + 17, -h/2 + 15 + sway);
+    ctx.lineTo(w/2 + 2, -h/2 + 18 + sway);
+    ctx.fill();
+    // cabeça encapuzada
+    ctx.fillStyle = "#2b2f36"; ctx.beginPath(); ctx.arc(0, -h/2 + 2 + sway, 9, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#0b0c0f"; ctx.beginPath(); ctx.arc(1, -h/2 + 3 + sway, 6, 0, Math.PI*2); ctx.fill(); // rosto na sombra
+    if (e.alive){ ctx.fillStyle = "#e23b3b"; ctx.fillRect(-2, -h/2 + 1 + sway, 2, 2); ctx.fillRect(3, -h/2 + 1 + sway, 2, 2); } // olhos
+    else { ctx.fillStyle = "#777"; ctx.font = "bold 10px sans-serif"; ctx.fillText("x", 1, -h/2 + 3 + sway); }
   }
   else if (e.type === "slime"){
     const squash = e.onGround ? 1 : 0.7;
